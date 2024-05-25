@@ -1,3 +1,5 @@
+import math
+
 class DistanceSensor:
     def __init__(self, sensor_direction, distance=0):
         self.distance = distance  # the distance from an obstacle
@@ -7,12 +9,14 @@ class DistanceSensor:
     def update_values(self, map_matrix, location_on_map, drone_radius, drone_orientation):
         max_range = 120  # 3 meters in pixels (3 meters / 0.025 meters per pixel)
         directions = {
-            "forward": (1, 0),
-            "backward": (-1, 0),
-            "leftward": (0, -1),
-            "rightward": (0, 1)
+            "forward": 0,
+            "backward": 180,
+            "leftward": 270,
+            "rightward": 90
         }
-        dx, dy = directions[self.direction]
+        
+        dx = math.cos(math.radians(drone_orientation + directions[self.direction]))  # defind the x direction relatively to the drone's angle 
+        dy = math.sin(math.radians(drone_orientation + directions[self.direction]))  # defind the y direction relatively to the drone's angle
         drone_x, drone_y = location_on_map
     
         sensor_x = drone_x - drone_radius if dx < 0 else drone_x + drone_radius
@@ -20,6 +24,7 @@ class DistanceSensor:
 
         for dist in range(1, max_range + 1):
             nx, ny = int(sensor_x + dx * dist), int(sensor_y + dy * dist)
+            # checking if found an obstacle
             if nx < 0 or nx >= len(map_matrix[0]) or ny < 0 or ny >= len(map_matrix):
                 self.distance = dist * 2.5  # Distance in cm
                 return

@@ -9,7 +9,7 @@ class Drone:
     def __init__(self):
         # self.battery_sensor = BatterySensor()
         # self.optical_flow_sensor = OpticalFlow()
-        # self.orientation_sensor = IMU()
+        #self.orientation_sensor = IMU()
         self.forward_distance_sensor = DistanceSensor("forward")
         self.backward_distance_sensor = DistanceSensor("backward")
         self.leftward_distance_sensor = DistanceSensor("leftward")
@@ -22,6 +22,7 @@ class Drone:
         self.backward_distance_sensor.update_values(map_matrix, position, drone_radius,orientation)
         self.leftward_distance_sensor.update_values(map_matrix, position, drone_radius,orientation)
         self.rightward_distance_sensor.update_values(map_matrix, position, drone_radius,orientation)
+        
 
     def move_drone(self,drone_pos):
         # Calculate new position

@@ -1,5 +1,5 @@
 import tkinter as tk
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk,ImageDraw
 import random
 import math
 from Drone import Drone
@@ -39,11 +39,18 @@ class DroneSimulation:
         self.drone = Drone()
         self.drone_item = None
         self.arrow_item = None
-        self.respawn_drone()
+        
 
+        # Create an image to draw the markers on
+        self.marker_image = Image.new("RGBA", (self.canvas_width, self.canvas_height))
+        self.marker_draw = ImageDraw.Draw(self.marker_image)
+        self.marker_photo = ImageTk.PhotoImage(self.marker_image)
+        self.marker_canvas_item = self.canvas.create_image(0, 0, anchor=tk.NW, image=self.marker_photo)
+
+        self.respawn_drone()
         # Bind arrow key events
         self.master.bind("<Left>", lambda event: self.move_drone_by_pressing(-4, 0))
-        self.master.bind("<Right>", lambda event: self.move_drone_automatically())#lambda event: self.move_drone_by_pressing(4, 0))
+        self.master.bind("<Right>", lambda event: self.move_drone_forward()) #lambda event: self.move_drone_by_pressing(4, 0))
         self.master.bind("<Up>", lambda event: self.move_drone_by_pressing(0, -4))
         self.master.bind("<Down>", lambda event: self.move_drone_by_pressing(0, 4))
         self.master.bind("<W>", lambda event: self.update_drone_angle(-10))
@@ -117,8 +124,7 @@ class DroneSimulation:
             else:  # Respawn drone if it touches a black pixel
                 self.respawn_drone()
 
-
-    def move_drone_automatically(self):
+    def move_drone_forward(self):
         # Calculate new position
         new_pos, dx, dy = self.drone.move_drone(self.drone_pos)
 
@@ -148,12 +154,43 @@ class DroneSimulation:
 
 
     def update_sensors(self):
-        self.drone.update_sensors(self.map_matrix, self.drone_pos, self.drone_radius, None)  # Replace None with the actual drone orientation if needed
+        self.drone.update_sensors(self.map_matrix, self.drone_pos, self.drone_radius, self.drone.drone_angle_forward)  # Replace None with the actual drone orientation if needed
         self.canvas.itemconfig(self.sensor_texts["forward"], text=f"Forward: {self.drone.forward_distance_sensor.distance:.1f} cm")
         self.canvas.itemconfig(self.sensor_texts["backward"], text=f"Backward: {self.drone.backward_distance_sensor.distance:.1f} cm")
         self.canvas.itemconfig(self.sensor_texts["leftward"], text=f"Left: {self.drone.leftward_distance_sensor.distance:.1f} cm")
         self.canvas.itemconfig(self.sensor_texts["rightward"], text=f"Right: {self.drone.rightward_distance_sensor.distance:.1f} cm")
-        self.canvas.itemconfig(self.sensor_texts["IMU"], text=f"IMU: {self.drone.drone_angle_forward:.1f}")
+        self.canvas.itemconfig(self.sensor_texts["IMU"], text=f"IMU: {(360 - self.drone.drone_angle_forward) % 360:.1f}")
+        self.paint_detected_points()
+        
+    def paint_detected_points(self):
+        def get_detected_points(sensor_distance, angle_offset):
+            angle_rad = math.radians((self.drone.drone_angle_forward + angle_offset) % 360)
+            points = []
+            for dist in range(1, int(sensor_distance / 2.5) + 1):
+                x = self.drone_pos[0] + dist * math.cos(angle_rad)
+                y = self.drone_pos[1] + dist * math.sin(angle_rad)
+                if 0 <= x < self.canvas_width and 0 <= y < self.canvas_height:
+                    points.append((int(x), int(y)))
+            return points
+
+        # Draw yellow mark at drone's current position
+        self.marker_draw.ellipse((self.drone_pos[0] - 2, self.drone_pos[1] - 2, self.drone_pos[0] + 2, self.drone_pos[1] + 2), fill=(255, 255, 0, 255))
+
+        # Get detected points for left and right sensors
+        left_points = get_detected_points(self.drone.leftward_distance_sensor.distance, -90)
+        right_points = get_detected_points(self.drone.rightward_distance_sensor.distance, 90)
+
+        marker_radius = 9
+        # Draw markers for detected points
+        for x, y in left_points:
+            self.marker_draw.ellipse((x - marker_radius, y - marker_radius, x + marker_radius, y + marker_radius), fill=(255, 255, 0, 255))
+        for x, y in right_points:
+            self.marker_draw.ellipse((x - marker_radius, y - marker_radius, x + marker_radius, y + marker_radius), fill=(255, 255, 0, 255))
+
+        # Update the marker image on the canvas
+        self.marker_photo = ImageTk.PhotoImage(self.marker_image)
+        self.canvas.itemconfig(self.marker_canvas_item, image=self.marker_photo)
+
 
 def main():
     root = tk.Tk()
