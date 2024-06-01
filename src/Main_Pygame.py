@@ -26,7 +26,7 @@ class DroneSimulation:
         # Load map
         script_dir = os.path.dirname(os.path.abspath(__file__))
         parent_directory = os.path.dirname(script_dir)
-        input_filepath = os.path.join(parent_directory, 'maps', 'p11.png')
+        input_filepath = os.path.join(parent_directory, 'maps', 'p13.png')
         self.load_map(input_filepath)
 
         self.sensor_texts = {
@@ -199,10 +199,31 @@ class DroneSimulation:
     def check_coin_collection(self):
         for coin in self.coins[:]:
             distance = math.sqrt((coin.pos[0] - self.drone_pos[0]) ** 2 + (coin.pos[1] - self.drone_pos[1]) ** 2)
-            if distance <= 40:  # 40 pixels is equivalent to 1 meter
+            if distance <= 80:  # 80 pixels is equivalent to 2 meter
                 self.coins.remove(coin)
                 self.coins_collected += 1
                 self.sensor_texts["Coins"] = f"Coins Collected: {self.coins_collected} / {self.number_of_spawned_coins}"
+
+
+    # def check_coin_collection(self):
+    #     for coin in self.coins[:]:
+    #         # Calculate vector from drone to coin
+    #         dx = coin.pos[0] - self.drone_pos[0]
+    #         dy = coin.pos[1] - self.drone_pos[1]
+            
+    #         # Calculate angle between drone orientation and vector to coin
+    #         angle_to_coin = math.degrees(math.atan2(dy, dx))
+    #         angle_difference = abs(angle_to_coin - self.drone.orientation_sensor.drone_orientation)
+    #         angle_difference = min(angle_difference, 360 - angle_difference)  # Take the smallest angle
+            
+    #         # Check if the angle difference is within the acceptable range for either side (e.g., 10 degrees)
+    #         if abs(angle_difference - 90) < 10 or abs(angle_difference - 270) < 10:
+    #             distance = math.sqrt(dx ** 2 + dy ** 2)
+    #             if distance <= 80:  # 80 pixels is equivalent to 2 meters
+    #                 self.coins.remove(coin)
+    #                 self.coins_collected += 1
+    #                 self.sensor_texts["Coins"] = f"Coins Collected: {self.coins_collected} / {self.number_of_spawned_coins}"
+
 
     def run_simulation(self):
         
@@ -252,7 +273,9 @@ class DroneSimulation:
             if keys[pygame.K_6]:
                 self.drone.pid_controller.update_D_value(-PID_value_change)
             if keys[pygame.K_q]:
-                self.drone.switch_wall()
+                self.drone.switch_wall(True)
+            if keys[pygame.K_e]:
+                self.drone.switch_wall(False)    
                 
 
 

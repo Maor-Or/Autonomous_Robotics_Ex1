@@ -15,9 +15,10 @@ class Drone:
         self.leftward_distance_sensor = DistanceSensor("leftward")
         self.rightward_distance_sensor = DistanceSensor("rightward")
         self.orientation_sensor = IMU() #the drone's angle, the drone is looking rightward, beginning at 0
-        self.pid_controller = PIDController(0.085, 0, 0.05, 5)  # Example PID values
-        self.forward_pid_controller = PIDController(1.6,0, 0.06, 5)  # Example PID values
-        self.desired_wall_distance = 33 # Desired distance from the wall in cm
+        self.pid_controller = PIDController(0.085, 0, 0.05, 5)  
+        self.forward_pid_controller = PIDController(1.6,0, 0.06, 5)
+        #self.narrow_pid_controller = PIDController(1.6,0, 0.06, 5)
+        self.desired_wall_distance = 25 # Desired distance from the wall in cm
         # Initialize variables for path tracking
         self.current_path = []
         self.previous_paths = []
@@ -63,14 +64,14 @@ class Drone:
                 return True  # Current path is too similar to a previous path
         return False
 
-    def switch_wall(self):
+    def switch_wall(self , flag):
         # Switch to hug the opposite wall
-        self.is_hugging_right = not self.is_hugging_right
+        self.is_hugging_right = flag
         # Clear the current path to start tracking a new path
         #self.current_path = []
 
     def wall_following(self, drone_pos, dt):
-        
+
         # Calculate the error from the desired wall distance
         if not self.is_hugging_right: #self.leftward_distance_sensor.distance < 35:  # Detect the wall on the left side
             error = -1 *(self.leftward_distance_sensor.distance - self.desired_wall_distance)
@@ -90,8 +91,17 @@ class Drone:
 
         forward_correction = self.forward_pid_controller.update(forward_distance_error, dt)
         
+        
+        # narrow_path_error = 0
+        # if self.is_hugging_right and self.leftward_distance_sensor.distance < self.rightward_distance_sensor.distance :
+        #     narrow_path_error = self.rightward_distance_sensor.distance - self.leftward_distance_sensor.distance
+        # elif not self.is_hugging_right and self.leftward_distance_sensor.distance > self.rightward_distance_sensor.distance :
+        #     narrow_path_error = self.rightward_distance_sensor.distance - self.leftward_distance_sensor.distance 
+
+        # narrow_correction = self.narrow_pid_controller.update(narrow_path_error , dt)
+
         #Sum up the corrections for the wall hugging and the drone's front error correction
-        overall_correction +=  forward_correction * turnning_direction
+        overall_correction +=  forward_correction * turnning_direction #+ narrow_correction
 
         # Limit the correction to prevent aggressive maneuvers
         max_correction = 10  # Define a maximum correction angle
