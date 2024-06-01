@@ -4,7 +4,7 @@ import random
 import math
 import os
 from Drone import Drone
-
+import time
 # Coin class
 class Coin:
     def __init__(self, x, y):
@@ -38,7 +38,11 @@ class DroneSimulation:
             "IMU": "IMU: 0",
             "Coins": "Coins Collected: 0",
             "Drone's battery": "0 %",
-            "Drone's speed": "0"
+            "Drone's speed": "0",
+            "P":"0",
+            "I":"0",
+            "D":"0",
+            "is_hugging_right": "True"
         }
 
         # Initialize drone
@@ -110,9 +114,8 @@ class DroneSimulation:
     #     else:
     #         self.reset_simulation()
 
-    def move_drone_by_direction(self, direction = "forward"):
-        # Calculate new position
-        new_pos = self.drone.move_drone(self.drone_pos , direction)
+    # checks if the drone is inside the map and also is not collided, if it did reset the game
+    def check_move_legality(self , new_pos):
         if (self.drone_radius <= new_pos[0] < self.screen_width - self.drone_radius and
                 self.drone_radius <= new_pos[1] < self.screen_height - self.drone_radius):
             if not self.check_collision(new_pos[0], new_pos[1]):
@@ -122,6 +125,11 @@ class DroneSimulation:
                 self.reset_simulation()
         else:
             self.reset_simulation()
+
+    def move_drone_by_direction(self, direction = "forward"):
+        # Calculate new position
+        new_pos = self.drone.move_drone(self.drone_pos , direction)
+        self.check_move_legality(new_pos)
                 
     def update_drone_angle(self, angle_delta):
         self.drone.update_drone_angle(angle_delta)
@@ -202,8 +210,15 @@ class DroneSimulation:
         frequency = 10  # Hz
         interval = 1000 // frequency  # Convert frequency to milliseconds
         sensors_update_timer = pygame.time.get_ticks()  # Initialize timer for sensors update
+        last_time = time.time()
 
+        PID_value_change = 0.005
         while not self.game_over:
+
+            current_time_test = time.time()
+            dt = current_time_test - last_time
+            last_time = current_time_test
+
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.game_over = True
@@ -217,11 +232,28 @@ class DroneSimulation:
                 self.move_drone_by_direction("leftward")
             if keys[pygame.K_DOWN]:
                 self.move_drone_by_direction("rightward")
-                
             if keys[pygame.K_a]:
                 self.update_drone_angle(-10)
             if keys[pygame.K_d]:
                 self.update_drone_angle(10)
+            #FOR UPDATING P
+            if keys[pygame.K_1]:
+                self.drone.pid_controller.update_P_value(PID_value_change)
+            if keys[pygame.K_2]:
+                self.drone.pid_controller.update_P_value(-PID_value_change)
+            #FOR UPDATING I    
+            if keys[pygame.K_3]:
+                self.drone.pid_controller.update_I_value(PID_value_change)
+            if keys[pygame.K_4]:
+                self.drone.pid_controller.update_I_value(-PID_value_change)
+            #FOR UPDATING D
+            if keys[pygame.K_5]:
+                self.drone.pid_controller.update_D_value(PID_value_change)
+            if keys[pygame.K_6]:
+                self.drone.pid_controller.update_D_value(-PID_value_change)
+            if keys[pygame.K_q]:
+                self.drone.switch_wall()
+                
 
 
             # Check if the right arrow key is pressed to update the speed
@@ -239,6 +271,10 @@ class DroneSimulation:
                 self.update_sensors()
                 sensors_update_timer = current_time  # Reset the timer
             
+
+            # Update drone position by algorithm
+            self.drone_pos = self.drone.update_position_by_algorithm(self.drone_pos, len(self.coins), dt)
+            self.check_move_legality(self.drone_pos)
             # Check coin collection
             self.check_coin_collection()
 
@@ -273,6 +309,10 @@ class DroneSimulation:
             self.sensor_texts["IMU"] = f"IMU: {(360 - self.drone.orientation_sensor.drone_orientation) % 360:.1f}"
             self.sensor_texts["Drone's battery"] = f"Drone's battery: {self.drone.battery_sensor.get_battrey_precentage():.1f} %"
             self.sensor_texts["Drone's speed"] = f"Drone's speed: {self.drone.optical_flow_sensor.get_current_speed():.1f}"
+            self.sensor_texts["P"] = f"P: {self.drone.pid_controller.P:.3f}"
+            self.sensor_texts["I"] = f"I: {self.drone.pid_controller.I:.3f}"
+            self.sensor_texts["D"] = f"D: {self.drone.pid_controller.D:.3f}"
+            self.sensor_texts["is_hugging_right"] = f"is_hugging_right: {self.drone.is_hugging_right}"
 
             # Display sensor texts
             font = pygame.font.Font(None, 36)
