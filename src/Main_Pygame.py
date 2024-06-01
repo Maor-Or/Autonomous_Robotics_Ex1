@@ -5,6 +5,15 @@ import math
 import os
 from Drone import Drone
 
+# Coin class
+class Coin:
+    def __init__(self, x, y):
+        self.pos = [x, y]
+        self.radius = 5  # Coin radius in pixels
+
+    def draw(self, screen):
+        pygame.draw.circle(screen, (128, 0, 128), self.pos, self.radius)  # purple  color
+
 # DroneSimulation class
 class DroneSimulation:
     def __init__(self):
@@ -26,14 +35,13 @@ class DroneSimulation:
             "backward": "Backward: 0 cm",
             "leftward": "Left: 0 cm",
             "rightward": "Right: 0 cm",
-            "IMU": "IMU: 0"
+            "IMU": "IMU: 0",
+            "Coins": "Coins Collected: 0"
         }
 
         # Initialize drone
         self.drone_radius = int(10 / 2.5)  # Convert cm to pixels
         self.drone = Drone()
-        self.left_points = []
-        self.right_points = []
         self.respawn_drone()
 
         self.clock = pygame.time.Clock()
@@ -41,6 +49,15 @@ class DroneSimulation:
 
         # List to store drone positions for leaving a trail
         self.drone_positions = []
+
+        # Array to remember painted pixels
+        self.detected_pixels = set()
+
+        # Coins
+        self.number_of_spawned_coins = 150 # the number of coins to spawn
+        self.coins = [] #store all coin instances
+        self.spawn_coins(self.number_of_spawned_coins) # generates "number_of_spawned_coins" coins randomly on the map
+        self.coins_collected = 0 # counter keeps track of collected coins
 
     def load_map(self, filename):
         map_img = Image.open(filename)
@@ -87,9 +104,9 @@ class DroneSimulation:
                 self.drone_pos = new_pos
                 self.drone_positions.append(self.drone_pos[:])  # Add position to the trail
             else:
-                self.respawn_drone()
+                self.reset_simulation()
         else:
-            self.respawn_drone()
+            self.reset_simulation()
 
     def move_drone_forward(self):
         angle_rad = math.radians(self.drone.drone_angle_forward)
@@ -102,9 +119,9 @@ class DroneSimulation:
                 self.drone_pos = new_pos
                 self.drone_positions.append(self.drone_pos[:])  # Add position to the trail
             else:
-                self.respawn_drone()
+                self.reset_simulation()
         else:
-            self.respawn_drone()
+            self.reset_simulation()
 
     def update_drone_angle(self, angle_delta):
         self.drone.update_drone_angle(angle_delta)
@@ -119,26 +136,68 @@ class DroneSimulation:
             for dist in range(1, int(min(sensor_distance, 300) / 2.5) + 1):
                 x = self.drone_pos[0] + dist * math.cos(angle_rad)
                 y = self.drone_pos[1] + dist * math.sin(angle_rad)
-                if 0 <= x <self.screen_width and 0 <= y < self.screen_height:
+                if 0 <= x < self.screen_width and 0 <= y < self.screen_height:
                     points.append((int(x), int(y)))
             return points
 
-        # Paint detected points (yellow markers)
-        marker_surface = pygame.Surface((self.screen_width, self.screen_height), pygame.SRCALPHA)
-
         # Get detected points for left and right sensors
-        self.left_points += get_detected_points(self.drone.leftward_distance_sensor.distance, -90)
-        self.right_points += get_detected_points(self.drone.rightward_distance_sensor.distance, 90)
+        left_points = get_detected_points(self.drone.leftward_distance_sensor.distance, -90)
+        right_points = get_detected_points(self.drone.rightward_distance_sensor.distance, 90)
 
-        marker_radius = 5
-        # Draw markers for detected points
-        for x, y in self.left_points:
-            pygame.draw.circle(marker_surface, (255, 255, 0, 255), (x, y), marker_radius)
-        for x, y in self.right_points:
-            pygame.draw.circle(marker_surface, (255, 255, 0, 255), (x, y), marker_radius)
+        # Calculate the new points to be added
+        new_detected_points = set(left_points + right_points)
+        points_to_paint = new_detected_points - self.detected_pixels
 
-        # Blit the marker surface onto the main screen surface
-        self.screen.blit(marker_surface, (0, 0))
+        # Update the main set of detected pixels
+        self.detected_pixels.update(new_detected_points)
+
+        # # Paint only the new points
+        # for x, y in points_to_paint:
+        #     self.screen.set_at((x, y), (255, 255, 0))
+
+        # Create a surface for detected points if not exists
+        if not hasattr(self, 'detected_surface'):
+            self.detected_surface = pygame.Surface((self.screen_width, self.screen_height))
+            self.detected_surface.set_colorkey((0, 0, 0))  # Set transparent color
+
+        # Paint only the new points on the detected surface
+        for x, y in points_to_paint:
+            self.detected_surface.set_at((x, y), (255, 255, 0))
+
+        # Blit the detected surface onto the main screen
+        self.screen.blit(self.detected_surface, (0, 0))
+
+    def reset_simulation(self):
+        self.detected_pixels.clear()  # Clear detected points
+        self.respawn_drone()  # Respawn the drone
+        self.drone_positions.clear()  # Clear trail
+        # empty the surface, ensuring that no previously detected points are displayed on the screen.
+        if hasattr(self, 'detected_surface'):
+            self.detected_surface.fill((0, 0, 0))  # Fill the detected surface with black color
+        #restarting the coins
+        self.coins.clear()
+        self.coins_collected = 0
+        self.sensor_texts["Coins"] = f"Coins Collected: {self.coins_collected} / {self.number_of_spawned_coins}"
+        self.spawn_coins(self.number_of_spawned_coins)
+        
+        
+    def spawn_coins(self, num_coins):
+        self.coins = []
+        while len(self.coins) < num_coins:
+            x = random.randint(0, self.screen_width - 1)
+            y = random.randint(0, self.screen_height - 1)
+            if self.map_matrix[y][x] == 0:  # Ensure coin is not inside a wall
+                self.coins.append(Coin(x, y))
+
+
+
+    def check_coin_collection(self):
+        for coin in self.coins[:]:
+            distance = math.sqrt((coin.pos[0] - self.drone_pos[0]) ** 2 + (coin.pos[1] - self.drone_pos[1]) ** 2)
+            if distance <= 40:  # 40 pixels is equivalent to 1 meter
+                self.coins.remove(coin)
+                self.coins_collected += 1
+                self.sensor_texts["Coins"] = f"Coins Collected: {self.coins_collected} / {self.number_of_spawned_coins}"
 
     def run_simulation(self):
         while not self.game_over:
@@ -163,6 +222,9 @@ class DroneSimulation:
             # Update sensors
             self.update_sensors()
 
+            # Check coin collection
+            self.check_coin_collection()
+
             # Blit the map image onto the screen
             self.screen.blit(self.map_img, (0, 0))
 
@@ -182,6 +244,10 @@ class DroneSimulation:
             # Blit the drone onto the screen
             pygame.draw.circle(self.screen, (255, 0, 0), self.drone_pos, self.drone_radius)
 
+            # Draw coins
+            for coin in self.coins:
+                coin.draw(self.screen)
+
             # Update sensor texts
             self.sensor_texts["forward"] = f"Forward: {self.drone.forward_distance_sensor.distance:.1f} cm"
             self.sensor_texts["backward"] = f"Backward: {self.drone.backward_distance_sensor.distance:.1f} cm"
@@ -192,7 +258,7 @@ class DroneSimulation:
             # Display sensor texts
             font = pygame.font.Font(None, 36)
             for i, (key, text) in enumerate(self.sensor_texts.items()):
-                text_surface = font.render(text, True, (255, 255, 255))
+                text_surface = font.render(text, True, (100, 100, 50))
                 self.screen.blit(text_surface, (10, self.screen_height - 40 - i * 30))
 
             pygame.display.update()
@@ -207,4 +273,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
