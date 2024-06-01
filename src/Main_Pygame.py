@@ -36,7 +36,9 @@ class DroneSimulation:
             "leftward": "Left: 0 cm",
             "rightward": "Right: 0 cm",
             "IMU": "IMU: 0",
-            "Coins": "Coins Collected: 0"
+            "Coins": "Coins Collected: 0",
+            "Drone's battery": "0 %",
+            "Drone's speed": "0"
         }
 
         # Initialize drone
@@ -96,8 +98,21 @@ class DroneSimulation:
                         return True
         return False
 
-    def move_drone_by_pressing(self, dx, dy):
-        new_pos = [self.drone_pos[0] + dx, self.drone_pos[1] + dy]
+    # def move_drone_by_pressing(self, dx, dy):
+    #     new_pos = [self.drone_pos[0] + dx, self.drone_pos[1] + dy]
+    #     if (self.drone_radius <= new_pos[0] < self.screen_width - self.drone_radius and
+    #             self.drone_radius <= new_pos[1] < self.screen_height - self.drone_radius):
+    #         if not self.check_collision(new_pos[0], new_pos[1]):
+    #             self.drone_pos = new_pos
+    #             self.drone_positions.append(self.drone_pos[:])  # Add position to the trail
+    #         else:
+    #             self.reset_simulation()
+    #     else:
+    #         self.reset_simulation()
+
+    def move_drone_by_direction(self, direction = "forward"):
+        # Calculate new position
+        new_pos = self.drone.move_drone(self.drone_pos , direction)
         if (self.drone_radius <= new_pos[0] < self.screen_width - self.drone_radius and
                 self.drone_radius <= new_pos[1] < self.screen_height - self.drone_radius):
             if not self.check_collision(new_pos[0], new_pos[1]):
@@ -107,37 +122,23 @@ class DroneSimulation:
                 self.reset_simulation()
         else:
             self.reset_simulation()
-
-    def move_drone_forward(self):
-        angle_rad = math.radians(self.drone.drone_angle_forward)
-        dx = math.cos(angle_rad) * 4
-        dy = math.sin(angle_rad) * 4
-        new_pos = [self.drone_pos[0] + dx, self.drone_pos[1] + dy]
-        if (self.drone_radius <= new_pos[0] < self.screen_width - self.drone_radius and
-                self.drone_radius <= new_pos[1] < self.screen_height - self.drone_radius):
-            if not self.check_collision(new_pos[0], new_pos[1]):
-                self.drone_pos = new_pos
-                self.drone_positions.append(self.drone_pos[:])  # Add position to the trail
-            else:
-                self.reset_simulation()
-        else:
-            self.reset_simulation()
-
+                
     def update_drone_angle(self, angle_delta):
         self.drone.update_drone_angle(angle_delta)
 
     def update_sensors(self):
-        self.drone.update_sensors(self.map_matrix, self.drone_pos, self.drone_radius, self.drone.drone_angle_forward)
+        self.drone.update_sensors(self.map_matrix, self.drone_pos, self.drone_radius, self.drone.orientation_sensor.drone_orientation)
 
     def paint_detected_points(self):
         def get_detected_points(sensor_distance, angle_offset):
-            angle_rad = math.radians((self.drone.drone_angle_forward + angle_offset) % 360)
+            angle_rad = math.radians((self.drone.orientation_sensor.drone_orientation + angle_offset) % 360)
             points = []
             for dist in range(1, int(min(sensor_distance, 300) / 2.5) + 1):
                 x = self.drone_pos[0] + dist * math.cos(angle_rad)
                 y = self.drone_pos[1] + dist * math.sin(angle_rad)
                 if 0 <= x < self.screen_width and 0 <= y < self.screen_height:
-                    points.append((int(x), int(y)))
+                    if self.map_matrix[int(y)][int(x)] == 0:  # Check if the point is in the white area
+                        points.append((int(x), int(y)))
             return points
 
         # Get detected points for left and right sensors
@@ -150,10 +151,6 @@ class DroneSimulation:
 
         # Update the main set of detected pixels
         self.detected_pixels.update(new_detected_points)
-
-        # # Paint only the new points
-        # for x, y in points_to_paint:
-        #     self.screen.set_at((x, y), (255, 255, 0))
 
         # Create a surface for detected points if not exists
         if not hasattr(self, 'detected_surface'):
@@ -179,6 +176,8 @@ class DroneSimulation:
         self.coins_collected = 0
         self.sensor_texts["Coins"] = f"Coins Collected: {self.coins_collected} / {self.number_of_spawned_coins}"
         self.spawn_coins(self.number_of_spawned_coins)
+        self.drone.optical_flow_sensor.reset_sensor()
+        self.drone.battery_sensor.reset_battrey()
         
         
     def spawn_coins(self, num_coins):
@@ -189,8 +188,6 @@ class DroneSimulation:
             if self.map_matrix[y][x] == 0:  # Ensure coin is not inside a wall
                 self.coins.append(Coin(x, y))
 
-
-
     def check_coin_collection(self):
         for coin in self.coins[:]:
             distance = math.sqrt((coin.pos[0] - self.drone_pos[0]) ** 2 + (coin.pos[1] - self.drone_pos[1]) ** 2)
@@ -200,6 +197,12 @@ class DroneSimulation:
                 self.sensor_texts["Coins"] = f"Coins Collected: {self.coins_collected} / {self.number_of_spawned_coins}"
 
     def run_simulation(self):
+        
+        # Define the desired frequency (10 times per second)
+        frequency = 10  # Hz
+        interval = 1000 // frequency  # Convert frequency to milliseconds
+        sensors_update_timer = pygame.time.get_ticks()  # Initialize timer for sensors update
+
         while not self.game_over:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
@@ -207,21 +210,35 @@ class DroneSimulation:
 
             keys = pygame.key.get_pressed()
             if keys[pygame.K_LEFT]:
-                self.move_drone_by_pressing(-4, 0)
+                self.move_drone_by_direction("backward")
             if keys[pygame.K_RIGHT]:
-                self.move_drone_forward()
+                self.move_drone_by_direction("forward")
             if keys[pygame.K_UP]:
-                self.move_drone_by_pressing(0, -4)
+                self.move_drone_by_direction("leftward")
             if keys[pygame.K_DOWN]:
-                self.move_drone_by_pressing(0, 4)
-            if keys[pygame.K_w]:
+                self.move_drone_by_direction("rightward")
+                
+            if keys[pygame.K_a]:
                 self.update_drone_angle(-10)
-            if keys[pygame.K_s]:
+            if keys[pygame.K_d]:
                 self.update_drone_angle(10)
 
-            # Update sensors
-            self.update_sensors()
 
+            # Check if the right arrow key is pressed to update the speed
+            if keys[pygame.K_w]:
+                self.drone.optical_flow_sensor.update_speed_acceleration()
+                        
+            if keys[pygame.K_s]:
+                self.drone.optical_flow_sensor.update_speed_deceleration()   
+
+
+            # Check if it's time to update the sensors , we want to update 10 times per second
+            current_time = pygame.time.get_ticks()
+            if current_time - sensors_update_timer >= interval:
+                # Update sensors
+                self.update_sensors()
+                sensors_update_timer = current_time  # Reset the timer
+            
             # Check coin collection
             self.check_coin_collection()
 
@@ -236,7 +253,7 @@ class DroneSimulation:
                 pygame.draw.circle(self.screen, (0, 0, 255), pos, 2)
 
             # Draw arrow on the drone indicating its direction
-            angle_rad = math.radians(self.drone.drone_angle_forward)
+            angle_rad = math.radians(self.drone.orientation_sensor.drone_orientation)
             end_x = self.drone_pos[0] + 15 * math.cos(angle_rad)
             end_y = self.drone_pos[1] + 15 * math.sin(angle_rad)
             pygame.draw.line(self.screen, (0, 0, 0), self.drone_pos, (end_x, end_y), 2)
@@ -253,7 +270,9 @@ class DroneSimulation:
             self.sensor_texts["backward"] = f"Backward: {self.drone.backward_distance_sensor.distance:.1f} cm"
             self.sensor_texts["leftward"] = f"Left: {self.drone.leftward_distance_sensor.distance:.1f} cm"
             self.sensor_texts["rightward"] = f"Right: {self.drone.rightward_distance_sensor.distance:.1f} cm"
-            self.sensor_texts["IMU"] = f"IMU: {(360 - self.drone.drone_angle_forward) % 360:.1f}"
+            self.sensor_texts["IMU"] = f"IMU: {(360 - self.drone.orientation_sensor.drone_orientation) % 360:.1f}"
+            self.sensor_texts["Drone's battery"] = f"Drone's battery: {self.drone.battery_sensor.get_battrey_precentage():.1f} %"
+            self.sensor_texts["Drone's speed"] = f"Drone's speed: {self.drone.optical_flow_sensor.get_current_speed():.1f}"
 
             # Display sensor texts
             font = pygame.font.Font(None, 36)
