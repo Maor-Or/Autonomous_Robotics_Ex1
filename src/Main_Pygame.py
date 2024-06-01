@@ -26,7 +26,7 @@ class DroneSimulation:
         # Load map
         script_dir = os.path.dirname(os.path.abspath(__file__))
         parent_directory = os.path.dirname(script_dir)
-        input_filepath = os.path.join(parent_directory, 'maps', 'p13.png')
+        input_filepath = os.path.join(parent_directory, 'maps', 'p12.png')
         self.load_map(input_filepath)
 
         self.sensor_texts = {
