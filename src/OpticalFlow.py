@@ -1,7 +1,7 @@
 class OpticalFlow:
     def __init__(self):
         self.acceleration = 1  # Acceleration rate in meters per second squared
-        self.max_speed = 1  # Maximum speed in meters per second
+        self.max_speed = 3  # Maximum speed in meters per second
         self.current_speed = 0  # Current speed in meters per second
 
     def update_speed_acceleration(self):
