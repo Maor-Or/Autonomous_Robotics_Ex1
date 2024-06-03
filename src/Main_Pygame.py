@@ -18,7 +18,7 @@ class DroneSimulation:
         # Load map
         script_dir = os.path.dirname(os.path.abspath(__file__))
         parent_directory = os.path.dirname(script_dir)
-        input_filepath = os.path.join(parent_directory, 'maps', 'p14.png')
+        input_filepath = os.path.join(parent_directory, 'maps', 'p11.png')
         self.load_map(input_filepath)
 
         self.sensor_texts = {
@@ -118,13 +118,13 @@ class DroneSimulation:
     def move_drone_by_direction(self, direction = "forward"):  
         new_pos = self.drone.move_drone(self.drone_pos , direction)
         self.check_move_legality(new_pos)
-                
+    # for controling the drone manul
     def update_drone_angle(self, angle_delta):
         self.drone.update_drone_angle(angle_delta)
 
     def update_sensors(self):
         self.drone.update_sensors(self.map_matrix, self.drone_pos, self.drone_radius, self.drone.orientation_sensor.drone_orientation)
-        
+       
     def paint_detected_points(self):
         def get_detected_points(sensor_distance, angle_offset):
             angle_rad = math.radians((self.drone.orientation_sensor.drone_orientation + angle_offset) % 360)
@@ -144,9 +144,26 @@ class DroneSimulation:
         # Calculate the new points to be added
         new_detected_points = set(left_points + right_points)
         points_to_paint = new_detected_points - self.detected_pixels
+
+        # Function to get all points within a radius of 2 around a point
+        def get_points_in_radius(x, y, radius=2):
+            points = set()
+            for dx in range(-radius, radius + 1):
+                for dy in range(-radius, radius + 1):
+                    if dx * dx + dy * dy <= radius * radius:
+                        new_x, new_y = x + dx, y + dy
+                        if 0 <= new_x < self.screen_width and 0 <= new_y < self.screen_height:
+                            if self.map_matrix[new_y][new_x] == 0:  # Check if the point is in the white area
+                                points.add((new_x, new_y))
+            return points
     
-        # Update the main set of detected pixels
-        self.detected_pixels.update(new_detected_points)
+
+        # Update the main set of detected pixels with the new points and their surrounding points
+        expanded_points_to_paint = set()
+        for x, y in points_to_paint:
+            expanded_points_to_paint.update(get_points_in_radius(x, y))
+
+        self.detected_pixels.update(expanded_points_to_paint)
 
         # Create a surface for detected points if not exists
         if not hasattr(self, 'detected_surface'):
@@ -154,11 +171,11 @@ class DroneSimulation:
             self.detected_surface.set_colorkey((0, 0, 0))  # Set transparent color
 
         # Paint only the new points on the detected surface
-        for x, y in points_to_paint:
-            self.detected_surface.set_at((x, y), (255, 255, 0))
+        for x, y in expanded_points_to_paint:
+           self.detected_surface.set_at((x, y), (255, 255, 0))
 
         # Store detected points for yellow collection
-        self.detected_yellow_pixels.update(points_to_paint)
+        self.detected_yellow_pixels.update(expanded_points_to_paint)
 
         # Blit the detected surface onto the main screen
         self.screen.blit(self.detected_surface, (0, 0))
