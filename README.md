@@ -8,8 +8,10 @@
 * Clone the repo to a local machine
 * Download requirements with: pip install -r requirements.txt
 * From a terminal window navigate to the src folder and execute: python Main_Pygame.py
+* Optional - You can add a custom-made map for the drone to cover: add the image into the maps folder
 ## Demo
-![gif to readme](https://github.com/Raz-Saad/Autonomous_Robotics_Ex1/assets/43138073/d2ad7b2e-ab0b-4604-9163-3ecc1490ce12)
+https://github.com/Raz-Saad/Autonomous_Robotics_Ex1/assets/43138073/f54530c8-0b4c-4101-8a18-2469a66a9ed3
+
 
 ![Capture](https://github.com/Raz-Saad/Autonomous_Robotics_Ex1/assets/43138073/cc1cc1e4-19e6-47a4-948d-6dcbc6f00888)
 
