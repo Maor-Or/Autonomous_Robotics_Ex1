@@ -13,6 +13,7 @@ class DroneSimulation:
         self.screen_width = 1366
         self.screen_height = 768
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
+        self.last_key_state = pygame.key.get_pressed() #for button pressing
         pygame.display.set_caption("Drone Simulation")
 
         # Load map
@@ -30,10 +31,6 @@ class DroneSimulation:
             "IMU": "IMU: 0",
             "Drone's battery": "0 %",
             "Drone's speed": "0",
-            "P":"0",
-            "I":"0",
-            "D":"0",
-            "is_hugging_right": "True",
             "Yellow_Percentage": "Yellow Percentage: 0.00%"
         }
 
@@ -209,8 +206,9 @@ class DroneSimulation:
         interval = 1000 // frequency  # Convert frequency to milliseconds
         sensors_update_timer = pygame.time.get_ticks()  # Initialize timer for sensors update
         last_time = time.time()
-
-        PID_value_change = 0.005
+        is_autonomous = True # a flag for enabling/disabling autonomous flight mode
+        is_button_being_pressed_this_iteration = False # to make sure the buttons value changes only at one iteration
+        #PID_value_change = 0.005
         #making the drone start flying
         self.drone.optical_flow_sensor.update_speed_acceleration()
         while not self.game_over:
@@ -236,33 +234,37 @@ class DroneSimulation:
                 self.update_drone_angle(-10)
             if keys[pygame.K_d]:
                 self.update_drone_angle(10)
-            #FOR UPDATING P
-            if keys[pygame.K_1]:
-                self.drone.pid_controller.update_P_value(PID_value_change)
-            if keys[pygame.K_2]:
-                self.drone.pid_controller.update_P_value(-PID_value_change)
-            #FOR UPDATING I    
-            if keys[pygame.K_3]:
-                self.drone.pid_controller.update_I_value(PID_value_change)
-            if keys[pygame.K_4]:
-                self.drone.pid_controller.update_I_value(-PID_value_change)
-            #FOR UPDATING D
-            if keys[pygame.K_5]:
-                self.drone.pid_controller.update_D_value(PID_value_change)
-            if keys[pygame.K_6]:
-                self.drone.pid_controller.update_D_value(-PID_value_change)
-            if keys[pygame.K_q]:
+            # Toggle functionality keys
+            if keys[pygame.K_q] and not self.last_key_state[pygame.K_q]:
                 self.drone.switch_wall()
-            if keys[pygame.K_e]:
-                self.drone.switch_wall()    
-                
-
+            if keys[pygame.K_r] and not self.last_key_state[pygame.K_r]:
+                self.reset_simulation()
+            if keys[pygame.K_e] and not self.last_key_state[pygame.K_e]:
+                is_autonomous = not is_autonomous
             # Check if the right arrow key is pressed to update the speed
-            if keys[pygame.K_w]:
+            if keys[pygame.K_w] and not self.last_key_state[pygame.K_w]:
                 self.drone.optical_flow_sensor.update_speed_acceleration()
-                        
-            if keys[pygame.K_s]:
-                self.drone.optical_flow_sensor.update_speed_deceleration()   
+            if keys[pygame.K_s] and not self.last_key_state[pygame.K_s]:
+                self.drone.optical_flow_sensor.update_speed_deceleration()
+
+            # Update the last key state
+            self.last_key_state = keys
+
+            # #FOR UPDATING P
+            # if keys[pygame.K_1]:
+            #     self.drone.pid_controller.update_P_value(PID_value_change)
+            # if keys[pygame.K_2]:
+            #     self.drone.pid_controller.update_P_value(-PID_value_change)
+            # #FOR UPDATING I    
+            # if keys[pygame.K_3]:
+            #     self.drone.pid_controller.update_I_value(PID_value_change)
+            # if keys[pygame.K_4]:
+            #     self.drone.pid_controller.update_I_value(-PID_value_change)
+            # #FOR UPDATING D
+            # if keys[pygame.K_5]:
+            #     self.drone.pid_controller.update_D_value(PID_value_change)
+            # if keys[pygame.K_6]:
+            #     self.drone.pid_controller.update_D_value(-PID_value_change)
 
             # Check if it's time to update the sensors , we want to update 10 times per second
             current_time = pygame.time.get_ticks()
@@ -271,11 +273,14 @@ class DroneSimulation:
                 self.update_sensors()
                 sensors_update_timer = current_time  # Reset the timer
             
-
-            # Update drone position by algorithm
-            self.drone_pos = self.drone.update_position_by_algorithm(self.drone_pos, dt)
+            if is_autonomous:
+                # Update drone position by algorithm
+                self.drone_pos = self.drone.update_position_by_algorithm(self.drone_pos, dt)
+            else:
+                self.move_drone_by_direction()
+            #checking if the drone crashing into the wall or not  
             self.check_move_legality(self.drone_pos)
-            
+                
             # Blit the map image onto the screen
             self.screen.blit(self.map_img, (0, 0))
 
@@ -305,10 +310,6 @@ class DroneSimulation:
             self.sensor_texts["IMU"] = f"IMU: {(360 - self.drone.orientation_sensor.drone_orientation) % 360:.1f}"
             self.sensor_texts["Drone's battery"] = f"Drone's battery: {self.drone.battery_sensor.get_battrey_precentage():.1f} %"
             self.sensor_texts["Drone's speed"] = f"Drone's speed: {self.drone.optical_flow_sensor.get_current_speed():.1f}"
-            self.sensor_texts["P"] = f"P: {self.drone.pid_controller.P:.3f}"
-            self.sensor_texts["I"] = f"I: {self.drone.pid_controller.I:.3f}"
-            self.sensor_texts["D"] = f"D: {self.drone.pid_controller.D:.3f}"
-            self.sensor_texts["is_hugging_right"] = f"is_hugging_right: {self.drone.is_hugging_right}"
             self.sensor_texts["Yellow_Percentage"] = f"Yellow_Percentage: {yellow_percentage:.2f} %"
 
 
