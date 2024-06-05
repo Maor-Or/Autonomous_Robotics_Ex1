@@ -2,6 +2,13 @@
 ## Contributors
 * Maor Or
 * Raz Saad
+* Shlomit Ashkenazi
+
+## How to run
+* Clone the repo to a local machine
+* Download requirements with: pip install -r requirements.txt
+* From a terminal window navigate to the src folder and execute: python Main_Pygame.py
+
 ## Overview
 Building a basic control system for a drone, allowing it to navigate through a two-dimensional terrain. The objective is to enable the drone to cover as much terrain as possible and return to the take-off point when the battery level reaches 50%.
 

@@ -104,7 +104,7 @@ class Drone:
         overall_correction = self.pid_controller.update(error, dt)
 
         # Calculate the correction for case the drone's front is getting too close to a wall
-        front_danger_distance = 65
+        front_danger_distance = 40
         if(self.forward_distance_sensor.distance >= front_danger_distance):
             forward_distance_error = 0
         else:
