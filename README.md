@@ -8,6 +8,10 @@
 * Clone the repo to a local machine
 * Download requirements with: pip install -r requirements.txt
 * From a terminal window navigate to the src folder and execute: python Main_Pygame.py
+## Demo
+![gif to readme](https://github.com/Raz-Saad/Autonomous_Robotics_Ex1/assets/43138073/d2ad7b2e-ab0b-4604-9163-3ecc1490ce12)
+
+![Capture](https://github.com/Raz-Saad/Autonomous_Robotics_Ex1/assets/43138073/cc1cc1e4-19e6-47a4-948d-6dcbc6f00888)
 
 ## Overview
 Building a basic control system for a drone, allowing it to navigate through a two-dimensional terrain. The objective is to enable the drone to cover as much terrain as possible and return to the take-off point when the battery level reaches 50%.
